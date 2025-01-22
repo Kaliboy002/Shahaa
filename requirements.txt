@@ -1,5 +1,3 @@
-flask
-mediapipe
-opencv-python
-numpy
-gunicorn
+aiogram==2.25
+gradio==3.0
+requests

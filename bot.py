@@ -47,45 +47,63 @@ async def process_face_swap(source_image_path, target_image_path):
 
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
-    await event.reply("Hello! Send me two photos, one as source and one as target, for face swapping.")
+    await event.reply("Hello! Please send the URLs for the source and target images.")
 
-@client.on(events.NewMessage(pattern='(.*)', func=lambda e: e.photo))
-async def handle_photos(event):
-    # Download the photo from Telegram
-    photo = await event.download_media()
+@client.on(events.NewMessage(pattern=r'(https?://[^\s]+)'))
+async def handle_image_urls(event):
+    # Extract URLs from the message
+    urls = event.message.text.split()
 
-    # Get the previous photo or start with source image
-    user_data = await event.get_sender()
-    if not hasattr(user_data, 'source_image'):
-        user_data.source_image = photo
-        await event.reply("Source image received! Now send the target image.")
+    if len(urls) != 2:
+        await event.reply("Please send exactly two URLs, one for the source image and one for the target image.")
         return
-    
-    target_image_path = photo
 
-    # Call the Gradio face swap API
+    source_url, target_url = urls
+
     try:
-        swapped_image = await process_face_swap(user_data.source_image, target_image_path)
+        # Download the images from the provided URLs
+        source_image = download_image_from_url(source_url)
+        target_image = download_image_from_url(target_url)
+
+        # Save the images to temporary files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+            temp_file.write(source_image)
+            source_image_path = temp_file.name
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+            temp_file.write(target_image)
+            target_image_path = temp_file.name
+
+        # Perform face swap
+        swapped_image = await process_face_swap(source_image_path, target_image_path)
 
         # Save the result to a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
             temp_file.write(swapped_image)
-            temp_file.close()
+            swapped_image_path = temp_file.name
 
-            # Upload the swapped image to ImgBB
-            swapped_image_url = upload_to_imgbb(temp_file.name)
+        # Upload the swapped image to ImgBB
+        swapped_image_url = upload_to_imgbb(swapped_image_path)
 
-            # Send the swapped image URL to the user
-            caption = f"Here is your face-swapped image: {swapped_image_url}"
-            await event.reply(caption)
+        # Send the swapped image URL to the user
+        caption = f"Here is your face-swapped image: {swapped_image_url}"
+        await event.reply(caption)
 
-            # Clean up the temporary file
-            os.remove(temp_file.name)
+        # Clean up temporary files
+        os.remove(source_image_path)
+        os.remove(target_image_path)
+        os.remove(swapped_image_path)
+
     except Exception as e:
         await event.reply(f"Error: {str(e)}")
 
-    # Reset user data
-    del user_data.source_image
+# Helper function to download an image from a URL
+def download_image_from_url(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.content
+    else:
+        raise Exception(f"Failed to download image from URL: {url}")
 
 # Start the bot
 client.start()

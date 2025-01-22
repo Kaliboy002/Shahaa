@@ -1,3 +1,4 @@
 telethon 
 gradio_client
 requests
+python-dotenv

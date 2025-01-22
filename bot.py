@@ -65,7 +65,7 @@ async def handle_image_urls(event):
         source_image = download_image_from_url(source_url)
         target_image = download_image_from_url(target_url)
 
-        # Save the images to temporary files
+        # Create temporary files to save the downloaded images
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
             temp_file.write(source_image)
             source_image_path = temp_file.name
